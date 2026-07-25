@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { classifyCommit } from "../../lib/tiering";
+import { classifyCommit, calculateHealthScore } from "../../lib/tiering";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -67,5 +67,17 @@ export async function GET(request: NextRequest) {
     )
   );
 
-  return NextResponse.json({ owner, repo, commits: detailedCommits });
+  const tier1Count = detailedCommits.filter((c) => c.tier === 1).length;
+  const tier2Count = detailedCommits.filter((c) => c.tier === 2).length;
+  const tier3Count = detailedCommits.filter((c) => c.tier === 3).length;
+
+  const healthScore = calculateHealthScore(tier1Count, tier2Count, tier3Count);
+
+  return NextResponse.json({
+    owner,
+    repo,
+    healthScore,
+    tierBreakdown: { tier1: tier1Count, tier2: tier2Count, tier3: tier3Count },
+    commits: detailedCommits,
+  });
 }
