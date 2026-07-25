@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { classifyCommit } from "../../lib/tiering";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -37,22 +38,33 @@ export async function GET(request: NextRequest) {
 
   // Step 2: For each commit, fetch its detailed stats (lines/files changed)
   const detailedCommits = await Promise.all(
-    commitList.map(async (commit: any) => {
-      const detailResponse = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/commits/${commit.sha}`,
-        { headers }
-      );
-      const detail = await detailResponse.json();
+    commitList.map(
+      async (commit: {
+        sha: string;
+        commit: { message: string; author: { name: string; date: string } };
+      }) => {
+        const detailResponse = await fetch(
+          `https://api.github.com/repos/${owner}/${repo}/commits/${commit.sha}`,
+          { headers }
+        );
+        const detail = await detailResponse.json();
 
-      return {
-        sha: commit.sha,
-        message: commit.commit.message,
-        author: commit.commit.author.name,
-        date: commit.commit.author.date,
-        linesChanged: (detail.stats?.additions || 0) + (detail.stats?.deletions || 0),
-        filesChanged: detail.files?.length || 0,
-      };
-    })
+        const linesChanged =
+          (detail.stats?.additions || 0) + (detail.stats?.deletions || 0);
+        const filesChanged = detail.files?.length || 0;
+        const tier = classifyCommit(linesChanged, filesChanged, false);
+
+        return {
+          sha: commit.sha,
+          message: commit.commit.message,
+          author: commit.commit.author.name,
+          date: commit.commit.author.date,
+          linesChanged,
+          filesChanged,
+          tier,
+        };
+      }
+    )
   );
 
   return NextResponse.json({ owner, repo, commits: detailedCommits });
