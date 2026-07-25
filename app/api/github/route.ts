@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { classifyCommit, calculateHealthScore } from "../../lib/tiering";
+import { generateExecutiveSummary } from "../../lib/llm";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -72,12 +73,29 @@ export async function GET(request: NextRequest) {
   const tier3Count = detailedCommits.filter((c) => c.tier === 3).length;
 
   const healthScore = calculateHealthScore(tier1Count, tier2Count, tier3Count);
+  const tierBreakdown = { tier1: tier1Count, tier2: tier2Count, tier3: tier3Count };
+
+  let executiveSummary: string[] = [];
+  try {
+    const commitMessages = detailedCommits.map((c) => c.message.split("\n")[0]);
+    executiveSummary = await generateExecutiveSummary(
+      owner,
+      repo,
+      healthScore,
+      tierBreakdown,
+      commitMessages
+    );
+  } catch (error) {
+  console.error("LLM summary failed:", error);
+  executiveSummary = ["AI summary unavailable at this time."];
+}
 
   return NextResponse.json({
     owner,
     repo,
     healthScore,
-    tierBreakdown: { tier1: tier1Count, tier2: tier2Count, tier3: tier3Count },
+    tierBreakdown,
+    executiveSummary,
     commits: detailedCommits,
   });
 }
