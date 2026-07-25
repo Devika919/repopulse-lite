@@ -79,7 +79,7 @@ export default function Home() {
         </p>
 
         {/* Input row */}
-        <div className="flex gap-2 mb-10">
+        <div className="flex flex-col sm:flex-row gap-2 mb-10">
           <input
             type="text"
             value={repoUrl}
