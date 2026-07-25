@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { classifyCommit, calculateHealthScore } from "../../lib/tiering";
 import { generateExecutiveSummary } from "../../lib/llm";
 
-export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const repoUrl = searchParams.get("repo");
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  const repoUrl = body.repoUrl;
+  const llmConfig = body.llmConfig || { provider: "groq" };
 
   if (!repoUrl) {
     return NextResponse.json({ error: "Missing repo URL" }, { status: 400 });
@@ -22,22 +23,39 @@ export async function GET(request: NextRequest) {
     Accept: "application/vnd.github+json",
   };
 
-  // Step 1: Get the list of last 20 commits (basic info)
   const listResponse = await fetch(
     `https://api.github.com/repos/${owner}/${repo}/commits?per_page=20`,
     { headers }
   );
 
   if (!listResponse.ok) {
+    if (listResponse.status === 403) {
+      const rateLimitRemaining = listResponse.headers.get("x-ratelimit-remaining");
+      if (rateLimitRemaining === "0") {
+        const resetTime = listResponse.headers.get("x-ratelimit-reset");
+        const resetDate = resetTime
+          ? new Date(parseInt(resetTime) * 1000).toLocaleTimeString()
+          : "soon";
+        return NextResponse.json(
+          { error: `GitHub API rate limit exceeded. Try again after ${resetDate}.` },
+          { status: 429 }
+        );
+      }
+    }
+    if (listResponse.status === 404) {
+      return NextResponse.json(
+        { error: "Repository not found. It may be private or doesn't exist." },
+        { status: 404 }
+      );
+    }
     return NextResponse.json(
-      { error: "Failed to fetch commits. Check the repo URL or if it's private." },
+      { error: "Failed to fetch commits from GitHub." },
       { status: listResponse.status }
     );
   }
 
   const commitList = await listResponse.json();
 
-  // Step 2: For each commit, fetch its detailed stats (lines/files changed)
   const detailedCommits = await Promise.all(
     commitList.map(
       async (commit: {
@@ -83,12 +101,13 @@ export async function GET(request: NextRequest) {
       repo,
       healthScore,
       tierBreakdown,
-      commitMessages
+      commitMessages,
+      llmConfig
     );
   } catch (error) {
-  console.error("LLM summary failed:", error);
-  executiveSummary = ["AI summary unavailable at this time."];
-}
+    console.error("LLM summary failed:", error);
+    executiveSummary = ["AI summary unavailable at this time."];
+  }
 
   return NextResponse.json({
     owner,

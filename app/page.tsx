@@ -33,13 +33,33 @@ export default function Home() {
   const [error, setError] = useState("");
   const [report, setReport] = useState<ReportData | null>(null);
 
+  const [provider, setProvider] = useState<"groq" | "custom">("groq");
+  const [showCustomFields, setShowCustomFields] = useState(false);
+  const [customBaseUrl, setCustomBaseUrl] = useState("");
+  const [customApiKey, setCustomApiKey] = useState("");
+  const [customModel, setCustomModel] = useState("");
+
   async function handleAnalyze() {
     setError("");
     setReport(null);
     setLoading(true);
 
+    const llmConfig =
+      provider === "custom"
+        ? {
+            provider: "custom",
+            baseUrl: customBaseUrl,
+            apiKey: customApiKey,
+            model: customModel,
+          }
+        : { provider: "groq" };
+
     try {
-      const response = await fetch(`/api/github?repo=${encodeURIComponent(repoUrl)}`);
+      const response = await fetch("/api/github", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repoUrl, llmConfig }),
+      });
       const data = await response.json();
 
       if (!response.ok) {
@@ -59,7 +79,6 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 px-6 py-16">
       <div className="max-w-3xl mx-auto">
-        {/* Header */}
         <div className="mb-10 flex items-center gap-3">
           <div className="relative flex h-3 w-3">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
@@ -78,8 +97,7 @@ export default function Home() {
           hand back a health score, risk tiers, and an AI executive summary.
         </p>
 
-        {/* Input row */}
-        <div className="flex flex-col sm:flex-row gap-2 mb-10">
+        <div className="flex flex-col sm:flex-row gap-2 mb-3">
           <input
             type="text"
             value={repoUrl}
@@ -96,14 +114,71 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Error */}
+        {/* LLM provider settings */}
+        <div className="mb-10">
+          <button
+            onClick={() => setShowCustomFields(!showCustomFields)}
+            className="text-xs text-slate-500 font-mono hover:text-slate-300 transition-colors"
+          >
+            {showCustomFields ? "▾" : "▸"} AI provider settings
+          </button>
+
+          {showCustomFields && (
+            <div className="mt-3 bg-slate-900 border border-slate-800 rounded-lg p-4 space-y-3">
+              <div className="flex gap-4 text-sm">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={provider === "groq"}
+                    onChange={() => setProvider("groq")}
+                  />
+                  Groq (default, free)
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={provider === "custom"}
+                    onChange={() => setProvider("custom")}
+                  />
+                  Custom provider
+                </label>
+              </div>
+
+              {provider === "custom" && (
+                <div className="space-y-2 pt-2">
+                  <input
+                    type="text"
+                    value={customBaseUrl}
+                    onChange={(e) => setCustomBaseUrl(e.target.value)}
+                    placeholder="Base URL (e.g. https://api.openai.com/v1/chat/completions)"
+                    className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm font-mono"
+                  />
+                  <input
+                    type="password"
+                    value={customApiKey}
+                    onChange={(e) => setCustomApiKey(e.target.value)}
+                    placeholder="API Key"
+                    className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm font-mono"
+                  />
+                  <input
+                    type="text"
+                    value={customModel}
+                    onChange={(e) => setCustomModel(e.target.value)}
+                    placeholder="Model name (e.g. gpt-4o-mini)"
+                    className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm font-mono"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {error && (
           <div className="bg-rose-950/40 border border-rose-900 text-rose-300 px-4 py-3 rounded-lg mb-8 font-mono text-sm">
             {error}
           </div>
         )}
 
-        {/* Loading skeleton */}
         {loading && (
           <div className="space-y-4">
             <div className="h-28 bg-slate-900 rounded-lg animate-pulse"></div>
@@ -112,10 +187,8 @@ export default function Home() {
           </div>
         )}
 
-        {/* Report */}
         {report && (
           <div className="space-y-6">
-            {/* Health score card */}
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-8">
               <div className="text-xs uppercase tracking-widest text-slate-500 font-mono mb-4">
                 {report.owner}/{report.repo}
@@ -129,7 +202,6 @@ export default function Home() {
               <p className="text-slate-500 mt-2">Repository Health Score</p>
             </div>
 
-            {/* Tier breakdown */}
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
               <h3 className="text-xs uppercase tracking-widest text-slate-500 font-mono mb-4">
                 Commit Tier Breakdown
@@ -155,14 +227,16 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Executive summary */}
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
               <h3 className="text-xs uppercase tracking-widest text-slate-500 font-mono mb-4">
                 AI Executive Summary
               </h3>
               <ul className="space-y-3">
                 {report.executiveSummary.map((point, i) => (
-                  <li key={i} className="text-slate-300 leading-relaxed pl-4 border-l-2 border-amber-400/30">
+                  <li
+                    key={i}
+                    className="text-slate-300 leading-relaxed pl-4 border-l-2 border-amber-400/30"
+                  >
                     {point.replace(/^-\s*/, "")}
                   </li>
                 ))}
