@@ -109,5 +109,5 @@ Visit http://localhost:3000.
 **Import the repository into Vercel
 **Add GITHUB_TOKEN and GROQ_API_KEY as Environment Variables in the Vercel project settings
 **Deploy
-Save the file. Tell me once done, then we'll commit it and do a final review before submission.
+
 
