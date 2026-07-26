@@ -47,10 +47,13 @@ A local MCP (Model Context Protocol) server is included in this repository at `m
 ```bash
 npm install
 npx tsx mcp-server/server.ts
+```
 
+**How to connect it to Claude Desktop:**
 
-**How to connect it to Claude Desktop:
-Add the following to your Claude Desktop config file (%APPDATA%\Claude\claude_desktop_config.json on Windows):**
+Add the following to your Claude Desktop config file (`%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+
+```json
 {
   "mcpServers": {
     "repopulse": {
@@ -62,52 +65,63 @@ Add the following to your Claude Desktop config file (%APPDATA%\Claude\claude_de
     }
   }
 }
+```
 
-**Restart Claude Desktop, **then check Settings → Developer → Local MCP Servers to confirm it shows as "running." This was tested and confirmed working — Claude Desktop successfully called analyze_repo and returned a live health score for a public repository.**
+Restart Claude Desktop, then check Settings → Developer → Local MCP Servers to confirm it shows as "running." This was tested and confirmed working — Claude Desktop successfully called `analyze_repo` and returned a live health score for a public repository.
 
+---
 
-**4. Heuristic Logic Specification
-**Commit complexity is classified using a deterministic (non-AI) rule-based system in lib/tiering.ts:
-Tier                                                  Criteria
-Tier 1 (Low)                       Fewer than 50 total lines changed, OR the commit is documentation-only
-Tier 2 (Medium)                     50–250 lines changed AND fewer than 5 files touched
-Tier 3 (High)                       More than 250 lines changed, OR more than 5 files touched
+## 4. Heuristic Logic Specification
 
-**Health Score formula (calculateHealthScore):**
+Commit complexity is classified using a deterministic (non-AI) rule-based system in `lib/tiering.ts`:
 
+| Tier | Criteria |
+|------|----------|
+| **Tier 1 (Low)** | Fewer than 50 total lines changed, OR the commit is documentation-only |
+| **Tier 2 (Medium)** | 50–250 lines changed AND fewer than 5 files touched |
+| **Tier 3 (High)** | More than 250 lines changed, OR more than 5 files touched |
+
+**Health Score formula (`calculateHealthScore`):**
+
+```
 tier2Ratio = tier2Count / totalCommits
 tier3Ratio = tier3Count / totalCommits
 healthScore = 100 - (tier2Ratio × 40) - (tier3Ratio × 70)
+```
 
-**The score is clamped between 0–100. This ratio-based approach (rather than flat penalties per commit) ensures the score scales fairly regardless of repository activity level, avoiding unfairly penalizing large, active projects that naturally have bigger commits**
+The score is clamped between 0–100. This ratio-based approach (rather than flat penalties per commit) ensures the score scales fairly regardless of repository activity level, avoiding unfairly penalizing large, active projects that naturally have bigger commits.
 
+---
 
+## 5. Environment Setup Guide
 
-**5. Environment Setup Guide
-**Prerequisites
-Node.js v18+
-**A GitHub account and Personal Access Token (scope: public_repo)
-A free Groq API key
-**Installation**
+### Prerequisites
+- Node.js v18+
+- A GitHub account and [Personal Access Token](https://github.com/settings/tokens) (scope: `public_repo`)
+- A free [Groq API key](https://console.groq.com/keys)
+
+### Installation
+```bash
 git clone https://github.com/Devika919/repopulse-lite.git
 cd repopulse-lite
 npm install
+```
 
-**Environment Variables
-**Create a .env.local file in the project root:**
+### Environment Variables
+Create a `.env.local` file in the project root:
+```
 GITHUB_TOKEN=your_github_personal_access_token
 GROQ_API_KEY=your_groq_api_key
+```
 
-
-**Running locally**
+### Running locally
+```bash
 npm run dev
-Visit http://localhost:3000.
+```
+Visit `http://localhost:3000`.
 
-
-**Deployment
-**This project is deployed on Vercel. To deploy your own copy:
-**Import the repository into Vercel
-**Add GITHUB_TOKEN and GROQ_API_KEY as Environment Variables in the Vercel project settings
-**Deploy
-
-
+### Deployment
+This project is deployed on Vercel. To deploy your own copy:
+1. Import the repository into Vercel
+2. Add `GITHUB_TOKEN` and `GROQ_API_KEY` as Environment Variables in the Vercel project settings
+3. Deploy
